@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bitezzo Checkout</title>
+  <style>
+    :root {
+      --primary: #e63946;
+      --bg: #f8f9fa;
+      --card: #ffffff;
+      --text: #212529;
+      --muted: #6c757d;<!DOCTYPE html>
+<html lang="en">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bitezzo | Fresh South Indian Tiffins</title>
@@ -136,6 +148,888 @@ $("filters").addEventListener("click",e=>{const b=e.target.closest("[data-filter
 $("cartOpen").addEventListener("click",openCart);$("cartClose").addEventListener("click",closeCart);$("cartOverlay").addEventListener("click",e=>{if(e.target===$("cartOverlay"))closeCart()});$("menuToggle").addEventListener("click",()=>$("navlinks").classList.toggle("open"));document.querySelectorAll(".navlinks a").forEach(a=>a.addEventListener("click",()=>$("navlinks").classList.remove("open")));$("ownerLink").addEventListener("click",e=>{e.preventDefault();showAdmin()});$("closeAdmin").addEventListener("click",hideAdmin);$("year").textContent=new Date().getFullYear();
 try{orders=JSON.parse(localStorage.getItem("bitezzoDemoOrders")||"[]")}catch(e){orders=[]}
 renderMenu();renderAdmin();
+</script>
+</body>
+</html>
+      --border: #dee2e6;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+    .cart-container {
+      max-width: 480px;
+      margin: 0 auto;
+      background: var(--card);
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h2 { margin-top: 0; }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 12px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-outline {
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+    }
+    .full { width: 100%; }
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      display: none;
+      font-size: 14px;
+    }
+    .order-success { text-align: center; }
+    .order-success .check { font-size: 48px; }
+  </style>
+</head>
+<body>
+
+<div class="cart-container" id="cartContent">
+  <h2>Checkout Details</h2>
+  <form id="checkoutForm" onsubmit="handleCheckout(event)">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" name="custName" required placeholder="John Doe">
+    </div>
+    <div class="form-group">
+      <label>Phone Number</label>
+      <input type="tel" name="custPhone" required placeholder="9876543210">
+    </div>
+    <div class="form-group">
+      <label>Delivery Address</label>
+      <textarea name="custAddress" required rows="2" placeholder="Street name, house number"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Pincode</label>
+      <input type="text" name="custPincode" required placeholder="600001">
+    </div>
+    <div class="form-group">
+      <label>Payment Method</label>
+      <select name="payment" required>
+        <option value="Online Payment (UPI/Card)">Online Payment (UPI / GPay / Card)</option>
+        <option value="Cash on Delivery">Cash on Delivery</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Special Instructions</label>
+      <input type="text" name="custNotes" placeholder="Less spicy, call on arrival, etc.">
+    </div>
+    <button type="submit" class="btn" id="submitBtn">Proceed & Pay</button>
+  </form>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // Demo State
+  let cart = { 101: 2, 102: 1 };
+  let products = [
+    { id: 101, name: "Masala Dosa", price: 80 },
+    { id: 102, name: "Filter Coffee", price: 30 }
+  ];
+  let orders = JSON.parse(localStorage.getItem("bitezzoDemoOrders") || "[]");
+
+  function cartTotals() {
+    let subtotal = products.reduce((acc, p) => acc + (cart[p.id] ? p.price * cart[p.id] : 0), 0);
+    let delivery = subtotal > 0 ? 30 : 0;
+    return { subtotal, delivery, total: subtotal + delivery };
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.innerText = msg;
+    t.style.display = "block";
+    setTimeout(() => { t.style.display = "none"; }, 3000);
+  }
+
+  function closeCart() {}
+  function renderAdmin() {}
+  function showAdmin() { alert("Opening Order Dashboard..."); }
+  function updateCartCount() {}
+
+  // MAIN CHECKOUT HANDLER WITH AUTOMATIC LOCATION & PAYMENT
+  async function handleCheckout(e) {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+
+    const fd = new FormData(e.target);
+    const t = cartTotals();
+    const items = products.filter(p => cart[p.id]).map(p => ({ name: p.name, qty: cart[p.id], price: p.price }));
+
+    if (!items.length) {
+      showToast("Your cart is empty");
+      btn.disabled = false;
+      return;
+    }
+
+    const paymentMethod = fd.get("payment");
+
+    // 1. ONLINE PAYMENT STEP
+    if (paymentMethod.includes("Online")) {
+      showToast("Initializing payment...");
+      // Simulating Online Payment Gateway (Razorpay/UPI Intent)
+      const paymentDone = await new Promise((resolve) => {
+        setTimeout(() => {
+          const success = confirm(`Process online payment of ₹${t.total}?`);
+          resolve(success);
+        }, 500);
+      });
+
+      if (!paymentDone) {
+        showToast("Payment cancelled or failed");
+        btn.disabled = false;
+        return;
+      }
+    }
+
+    // 2. AUTOMATIC GPS LOCATION FETCHING
+    let locationLink = "";
+    showToast("Fetching your current location...");
+
+    if ("geolocation" in navigator) {
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000
+          });
+        });
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        locationLink = `https://www.google.com/maps?q=${lat},${lon}`;
+      } catch (err) {
+        console.warn("Location error:", err.message);
+        showToast("Location permission skipped/failed. Proceeding with address.");
+      }
+    }
+
+    // 3. BUILD ORDER OBJECT
+    const order = {
+      id: "BZ" + Date.now().toString().slice(-6),
+      name: fd.get("custName"),
+      phone: fd.get("custPhone"),
+      address: fd.get("custAddress"),
+      pincode: fd.get("custPincode"),
+      notes: fd.get("custNotes"),
+      payment: paymentMethod + (paymentMethod.includes("Online") ? " (PAID)" : ""),
+      items,
+      total: t.total,
+      status: "Order Received",
+      time: new Date().toLocaleString(),
+      location: locationLink || "Not shared"
+    };
+
+    const bitezzoWhatsApp = "919515815945"; // India country code + Bitezzo number
+    if (!/^[0-9]{10,15}$/.test(bitezzoWhatsApp)) {
+      alert("Please check the Bitezzo WhatsApp number in the website code.");
+      btn.disabled = false;
+      return;
+    }
+
+    const itemLines = items.map(i => "• " + i.name + " × " + i.qty + " = ₹" + (i.price * i.qty));
+
+    // 4. FORMAT WHATSAPP MESSAGE
+    const message = [
+      "🍽️ *NEW ORDER - BITEZZO*",
+      "━━━━━━━━━━━━━━━━━━",
+      "*Order ID:* " + order.id,
+      "*Customer:* " + order.name,
+      "*Phone:* " + order.phone,
+      "",
+      "*ORDER ITEMS:*",
+      ...itemLines,
+      "",
+      "*Subtotal:* ₹" + t.subtotal,
+      "*Delivery charge:* ₹" + t.delivery,
+      "*TOTAL:* ₹" + t.total,
+      "*Payment Status:* " + order.payment,
+      "",
+      "*Delivery address:* " + order.address,
+      "*Pincode:* " + order.pincode,
+      locationLink ? "*Live GPS Location:* " + locationLink : "",
+      order.notes ? "*Special instructions:* " + order.notes : "",
+      "━━━━━━━━━━━━━━━━━━",
+      "Please confirm this order."
+    ].filter(Boolean).join("\n");
+
+    const whatsappURL = "https://wa.me/" + bitezzoWhatsApp + "?text=" + encodeURIComponent(message);
+
+    // Save locally
+    orders.unshift(order);
+    try {
+      localStorage.setItem("bitezzoDemoOrders", JSON.stringify(orders));
+    } catch (err) {}
+
+    renderAdmin();
+
+    const whatsappWindow = window.open(whatsappURL, "_blank");
+    if (!whatsappWindow) {
+      window.location.href = whatsappURL;
+      return;
+    }
+
+    cart = {};
+    updateCartCount();
+
+    document.getElementById("cartContent").innerHTML = `
+      <div class="order-success">
+        <div class="check">💬</div>
+        <h2>Order Ready in WhatsApp!</h2>
+        <p>Your order reference is <strong>${order.id}</strong>.</p>
+        <p style="color:var(--muted);line-height:1.6">
+          WhatsApp has opened with your order, payment details, and location. Please tap <strong>Send</strong>.
+        </p>
+        <button class="btn full" onclick="location.reload()">Back to Menu</button>
+        <button class="btn btn-outline full" style="margin-top:10px" onclick="showAdmin()">View Order Dashboard</button>
+      </div>
+    `;
+    showToast("Order prepared for WhatsApp.");
+  }
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+<div class="cart-container" id="cartContent">
+  <h2>Checkout Details</h2>
+  <form id="checkoutForm" onsubmit="handleCheckout(event)">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" name="custName" required placeholder="John Doe">
+    </div>
+    <div class="form-group">
+      <label>Phone Number</label>
+      <input type="tel" name="custPhone" required placeholder="9876543210">
+    </div>
+    <div class="form-group">
+      <label>Delivery Address</label>
+      <textarea name="custAddress" required rows="2" placeholder="Street name, house number"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Pincode</label>
+      <input type="text" name="custPincode" required placeholder="600001">
+    </div>
+    <div class="form-group">
+      <label>Payment Method</label>
+      <select name="payment" required>
+        <option value="UPI Payment">Pay via UPI (GPay/PhonePe/Paytm)</option>
+        <option value="Cash on Delivery">Cash on Delivery</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Special Instructions</label>
+      <input type="text" name="custNotes" placeholder="Less spicy, call on arrival, etc.">
+    </div>
+    <button type="submit" class="btn" id="submitBtn">Proceed to Order</button>
+  </form>
+</div>
+
+<div id="toast" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 20px; border-radius:20px; display:none; font-size:14px; z-index:9999;"></div>
+
+<script>
+  // Replace this with your actual UPI ID and Merchant Name
+  const MERCHANT_UPI_ID = "yourname@oksbi"; // <-- PUT YOUR UPI ID HERE
+  const MERCHANT_NAME = "Bitezzo";
+
+  // Demo State & Helpers (Replace with your own state managers)
+  let cart = { 101: 2 };
+  let products = [{ id: 101, name: "Masala Dosa", price: 80 }];
+  let orders = JSON.parse(localStorage.getItem("bitezzoDemoOrders") || "[]");
+
+  function cartTotals() {
+    let subtotal = products.reduce((acc, p) => acc + (cart[p.id] ? p.price * cart[p.id] : 0), 0);
+    let delivery = subtotal > 0 ? 30 : 0;
+    return { subtotal, delivery, total: subtotal + delivery };
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.innerText = msg;
+    t.style.display = "block";
+    setTimeout(() => { t.style.display = "none"; }, 3000);
+  }
+
+  function renderAdmin() {}
+  function showAdmin() { alert("Opening Dashboard..."); }
+  function updateCartCount() {}
+
+  // MAIN CHECKOUT HANDLER
+  async function handleCheckout(e) {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+
+    const fd = new FormData(e.target);
+    const t = cartTotals();
+    const items = products.filter(p => cart[p.id]).map(p => ({ name: p.name, qty: cart[p.id], price: p.price }));
+
+    if (!items.length) {
+      showToast("Your cart is empty");
+      btn.disabled = false;
+      return;
+    }
+
+    const paymentMethod = fd.get("payment");
+    let paymentStatus = "Pending (COD)";
+
+    // 1. MANDATORY UPI PAYMENT STEP (Before sending to WhatsApp)
+    if (paymentMethod === "UPI Payment") {
+      showToast("Initiating UPI Payment...");
+
+      // Option A: Generates a direct mobile UPI Intent link (opens GPay/PhonePe/Paytm automatically on mobile)
+      const upiDeepLink = `upi://pay?pa=${MERCHANT_UPI_ID}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${t.total}&cu=INR`;
+      
+      // Prompt user to pay first via prompt or simulation box
+      const confirmedPayment = await new Promise((resolve) => {
+        // You can use a custom modal here, or standard confirm dialog showing your UPI ID
+        const userPaid = confirm(
+          `--- SECURE UPI PAYMENT ---\n\n` +
+          `Please pay ₹${t.total} to our UPI ID:\n👉 ${MERCHANT_UPI_ID}\n\n` +
+          `Click 'OK' ONLY AFTER you have successfully completed the payment.`
+        );
+        resolve(userPaid);
+      });
+
+      if (!confirmedPayment) {
+        showToast("Payment was cancelled. Order not placed.");
+        btn.disabled = false;
+        return;
+      }
+      
+      paymentStatus = `PAID via UPI (${MERCHANT_UPI_ID})`;
+    }
+
+    // 2. AUTOMATIC GPS LOCATION FETCHING
+    let locationLink = "";
+    showToast("Fetching your current location...");
+
+    if ("geolocation" in navigator) {
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 8000
+          });
+        });
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        locationLink = `https://www.google.com/maps?q=${lat},${lon}`;
+      } catch (err) {
+        console.warn("Location error:", err.message);
+        showToast("Location skipped. Proceeding with address.");
+      }
+    }
+
+    // 3. BUILD ORDER OBJECT
+    const order = {
+      id: "BZ" + Date.now().toString().slice(-6),
+      name: fd.get("custName"),
+      phone: fd.get("custPhone"),
+      address: fd.get("custAddress"),
+      pincode: fd.get("custPincode"),
+      notes: fd.get("custNotes"),
+      payment: paymentStatus,
+      items,
+      total: t.total,
+      status: "Order Received",
+      time: new Date().toLocaleString(),
+      location: locationLink || "Not shared"
+    };
+
+    const bitezzoWhatsApp = "919515815945"; // Bitezzo WhatsApp number
+    if (!/^[0-9]{10,15}$/.test(bitezzoWhatsApp)) {
+      alert("Please check the Bitezzo WhatsApp number.");
+      btn.disabled = false;
+      return;
+    }
+
+    const itemLines = items.map(i => "• " + i.name + " × " + i.qty + " = ₹" + (i.price * i.qty));
+
+    // 4. FORMAT WHATSAPP MESSAGE
+    const message = [
+      "🍽️ *NEW ORDER - BITEZZO*",
+      "━━━━━━━━━━━━━━━━━━",
+      "*Order ID:* " + order.id,
+      "*Customer:* " + order.name,
+      "*Phone:* " + order.phone,
+      "",
+      "*ORDER ITEMS:*",
+      ...itemLines,
+      "",
+      "*Subtotal:* ₹" + t.subtotal,
+      "*Delivery charge:* ₹" + t.delivery,
+      "*TOTAL:* ₹" + t.total,
+      "*Payment Status:* " + order.payment,
+      "",
+      "*Delivery address:* " + order.address,
+      "*Pincode:* " + order.pincode,
+      locationLink ? "*Live GPS Location:* " + locationLink : "",
+      order.notes ? "*Special instructions:* " + order.notes : "",
+      "━━━━━━━━━━━━━━━━━━",
+      "Please confirm this order."
+    ].filter(Boolean).join("\n");
+
+    const whatsappURL = "https://wa.me/" + bitezzoWhatsApp + "?text=" + encodeURIComponent(message);
+
+    // Save locally
+    orders.unshift(order);
+    try {
+      localStorage.setItem("bitezzoDemoOrders", JSON.stringify(orders));
+    } catch (err) {}
+
+    renderAdmin();
+
+    const whatsappWindow = window.open(whatsappURL, "_blank");
+    if (!whatsappWindow) {
+      window.location.href = whatsappURL;
+      return;
+    }
+
+    cart = {};
+    updateCartCount();
+
+    document.getElementById("cartContent").innerHTML = `
+      <div style="text-align:center">
+        <div style="font-size:48px">✅</div>
+        <h2>Payment Done & Order Ready!</h2>
+        <p>Reference: <strong>${order.id}</strong></p>
+        <p style="color:#6c757d;line-height:1.6">
+          Your payment was confirmed and WhatsApp has opened with your receipt and location. Tap <strong>Send</strong>.
+        </p>
+        <button class="btn full" onclick="location.reload()">Back to Menu</button>
+      </div>
+    `;
+    showToast("Payment verified & order ready!");
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bitezzo Live Location Checkout</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f9; padding: 20px; }
+    .card { max-width: 400px; margin: auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; }
+    input, textarea, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { width: 100%; background: #25D366; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #1ebe5d; }
+    #status { font-size: 13px; color: #666; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Bitezzo Checkout</h2>
+  <form id="checkoutForm" onsubmit="handleCheckout(event)">
+    <div class="form-group">
+      <label>Your Name</label>
+      <input type="text" name="custName" required placeholder="John Doe">
+    </div>
+    <div class="form-group">
+      <label>Phone Number</label>
+      <input type="tel" name="custPhone" required placeholder="9876543210">
+    </div>
+    <div class="form-group">
+      <label>Delivery Address</label>
+      <textarea name="custAddress" required rows="2" placeholder="House No, Street, Landmark"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Pincode</label>
+      <input type="text" name="custPincode" required placeholder="600001">
+    </div>
+    <div class="form-group">
+      <label>Payment Method</label>
+      <select name="payment" required>
+        <option value="Cash on Delivery">Cash on Delivery</option>
+        <option value="UPI / Online">UPI / Online Payment</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Special Instructions</label>
+      <input type="text" name="custNotes" placeholder="Any requests?">
+    </div>
+    <button type="submit" id="submitBtn">Send Order to WhatsApp</button>
+    <div id="status"></div>
+  </form>
+</div>
+
+<script>
+  // Mock Cart Data for testing
+  let cart = { "101": 2 };
+  let products = [{ id: "101", name: "Masala Dosa", price: 80 }];
+
+  function cartTotals() {
+    let subtotal = 160;
+    let delivery = 30;
+    return { subtotal, delivery, total: subtotal + delivery };
+  }
+
+  // MAIN CHECKOUT HANDLER WITH AUTOMATIC LOCATION FETCHING
+  async function handleCheckout(e) {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    const statusDiv = document.getElementById("status");
+    btn.disabled = true;
+
+    const fd = new FormData(e.target);
+    const t = cartTotals();
+    const items = [{ name: "Masala Dosa", qty: 2, price: 80 }]; // Example item array
+
+    // 1. AUTOMATICALLY FETCH GPS LOCATION
+    statusDiv.innerText = "📍 Fetching your live GPS location...";
+    let locationLink = "";
+
+    if ("geolocation" in navigator) {
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          });
+        });
+        
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        
+        // Generate a live Google Maps pin link
+        locationLink = `https://www.google.com/maps?q=${lat},${lon}`;
+        statusDiv.innerText = "✅ Location captured successfully!";
+      } catch (error) {
+        console.warn("Geolocation error:", error.message);
+        statusDiv.innerText = "⚠️ Location permission denied/failed. Proceeding with address text.";
+      }
+    } else {
+      statusDiv.innerText = "⚠️ Geolocation is not supported by your browser.";
+    }
+
+    // 2. CREATE ORDER OBJECT
+    const order = {
+      id: "BZ" + Date.now().toString().slice(-6),
+      name: fd.get("custName"),
+      phone: fd.get("custPhone"),
+      address: fd.get("custAddress"),
+      pincode: fd.get("custPincode"),
+      notes: fd.get("custNotes"),
+      payment: fd.get("payment"),
+      items: items,
+      total: t.total,
+      status: "Order Received",
+      time: new Date().toLocaleString(),
+      location: locationLink || "Not provided"
+    };
+
+    const bitezzoWhatsApp = "919515815945"; // WhatsApp phone number digits only
+    const itemLines = order.items.map(i => "• " + i.name + " × " + i.qty + " = ₹" + (i.price * i.qty));
+
+    // 3. BUILD WHATSAPP MESSAGE TEXT (INCLUDES LIVE LOCATION IF AVAILABLE)
+    const message = [
+      "🍽️ *NEW ORDER - BITEZZO*",
+      "━━━━━━━━━━━━━━━━━━",
+      "*Order ID:* " + order.id,
+      "*Customer:* " + order.name,
+      "*Phone:* " + order.phone,
+      "",
+      "*ORDER ITEMS:*",
+      ...itemLines,
+      "",
+      "*Subtotal:* ₹" + t.subtotal,
+      "*Delivery charge:* ₹" + t.delivery,
+      "*TOTAL:* ₹" + t.total,
+      "*Payment method:* " + order.payment,
+      "",
+      "*Delivery address:* " + order.address,
+      "*Pincode:* " + order.pincode,
+      locationLink ? "📍 *Live GPS Location:* " + locationLink : "", // Appends Google Maps link automatically
+      order.notes ? "*Special instructions:* " + order.notes : "",
+      "━━━━━━━━━━━━━━━━━━",
+      "Please confirm this order."
+    ].filter(Boolean).join("\n");
+
+    const whatsappURL = "https://wa.me/" + bitezzoWhatsApp + "?text=" + encodeURIComponent(message);
+
+    // 4. OPEN WHATSAPP AFTER A SHORT DELAY TO LET STATUS SHOW
+    setTimeout(() => {
+      window.open(whatsappURL, "_blank");
+      btn.disabled = false;
+    }, 1000);
+  }
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bitezzo Checkout with Live Location</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f9fa; padding: 20px; }
+    .cart-container { max-width: 450px; margin: auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 14px; }
+    input, textarea, select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 6px; }
+    .btn { width: 100%; background: #25D366; color: white; border: none; padding: 12px; font-weight: bold; border-radius: 6px; cursor: pointer; }
+    .btn:hover { background: #1ebe5d; }
+    #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 20px; border-radius: 20px; display: none; font-size: 14px; z-index: 9999; }
+  </style>
+</head>
+<body>
+
+<div class="cart-container" id="cartContent">
+  <h2>Bitezzo Checkout</h2>
+  <form id="checkoutForm" onsubmit="handleCheckout(event)">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" name="custName" required placeholder="John Doe">
+    </div>
+    <div class="form-group">
+      <label>Phone Number</label>
+      <input type="tel" name="custPhone" required placeholder="9876543210">
+    </div>
+    <div class="form-group">
+      <label>Delivery Address</label>
+      <textarea name="custAddress" required rows="2" placeholder="Street name, house number"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Pincode</label>
+      <input type="text" name="custPincode" required placeholder="600001">
+    </div>
+    <div class="form-group">
+      <label>Payment Method</label>
+      <select name="payment" required>
+        <option value="Cash on Delivery">Cash on Delivery</option>
+        <option value="Online / UPI">Online / UPI Payment</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Special Instructions</label>
+      <input type="text" name="custNotes" placeholder="Less spicy, call on arrival, etc.">
+    </div>
+    <button type="submit" class="btn" id="submitBtn">Send Order to WhatsApp</button>
+  </form>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // Demo state variables for testing
+  let cart = { 101: 2 };
+  let products = [{ id: 101, name: "Masala Dosa", price: 80 }];
+  let orders = JSON.parse(localStorage.getItem("bitezzoDemoOrders") || "[]");
+
+  function cartTotals() {
+    let subtotal = products.reduce((acc, p) => acc + (cart[p.id] ? p.price * cart[p.id] : 0), 0);
+    let delivery = subtotal > 0 ? 30 : 0;
+    return { subtotal, delivery, total: subtotal + delivery };
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.innerText = msg;
+    t.style.display = "block";
+    setTimeout(() => { t.style.display = "none"; }, 3000);
+  }
+
+  function renderAdmin() {}
+  function showAdmin() { alert("Dashboard opened"); }
+  function updateCartCount() {}
+  function $(id) { return document.getElementById(id); }
+
+  // MAIN CHECKOUT HANDLER WITH AUTOMATIC LIVE LOCATION FETCHING
+  async function handleCheckout(e) {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+
+    const fd = new FormData(e.target);
+    const t = cartTotals();
+    const items = products.filter(p => cart[p.id]).map(p => ({ name: p.name, qty: cart[p.id], price: p.price }));
+
+    if (!items.length) {
+      showToast("Your cart is empty");
+      btn.disabled = false;
+      return;
+    }
+
+    // 1. AUTOMATICALLY FETCH LIVE GPS LOCATION
+    let locationLink = "";
+    showToast("📍 Fetching your current location...");
+
+    if ("geolocation" in navigator) {
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          });
+        });
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        
+        // Build Google Maps pin link
+        locationLink = `https://www.google.com/maps?q=${lat},${lon}`;
+      } catch (err) {
+        console.warn("Location error:", err.message);
+        showToast("⚠️ Location permission denied. Proceeding with address text.");
+      }
+    }
+
+    // 2. CREATE ORDER OBJECT
+    const order = {
+      id: "BZ" + Date.now().toString().slice(-6),
+      name: fd.get("custName"),
+      phone: fd.get("custPhone"),
+      address: fd.get("custAddress"),
+      pincode: fd.get("custPincode"),
+      notes: fd.get("custNotes"),
+      payment: fd.get("payment"),
+      items,
+      total: t.total,
+      status: "Order Received",
+      time: new Date().toLocaleString(),
+      location: locationLink || "Not shared"
+    };
+
+    const bitezzoWhatsApp = "919515815945"; // India country code + Bitezzo number
+    if (!/^[0-9]{10,15}$/.test(bitezzoWhatsApp)) {
+      alert("Please check the Bitezzo WhatsApp number.");
+      btn.disabled = false;
+      return;
+    }
+
+    const itemLines = items.map(i => "• " + i.name + " × " + i.qty + " = ₹" + (i.price * i.qty));
+
+    // 3. BUILD WHATSAPP MESSAGE INCLUDING GPS LOCATION
+    const message = [
+      "🍽️ *NEW ORDER - BITEZZO*",
+      "━━━━━━━━━━━━━━━━━━",
+      "*Order ID:* " + order.id,
+      "*Customer:* " + order.name,
+      "*Phone:* " + order.phone,
+      "",
+      "*ORDER ITEMS:*",
+      ...itemLines,
+      "",
+      "*Subtotal:* ₹" + t.subtotal,
+      "*Delivery charge:* ₹" + t.delivery,
+      "*TOTAL:* ₹" + t.total,
+      "*Payment method:* " + order.payment,
+      "",
+      "*Delivery address:* " + order.address,
+      "*Pincode:* " + order.pincode,
+      locationLink ? "📍 *Live GPS Location:* " + locationLink : "", // Adds live location link
+      order.notes ? "*Special instructions:* " + order.notes : "",
+      "━━━━━━━━━━━━━━━━━━",
+      "Please confirm this order."
+    ].filter(Boolean).join("\n");
+
+    const whatsappURL = "https://wa.me/" + bitezzoWhatsApp + "?text=" + encodeURIComponent(message);
+
+    // Save locally
+    orders.unshift(order);
+    try {
+      localStorage.setItem("bitezzoDemoOrders", JSON.stringify(orders));
+    } catch (err) {}
+
+    renderAdmin();
+
+    const whatsappWindow = window.open(whatsappURL, "_blank");
+    if (!whatsappWindow) {
+      window.location.href = whatsappURL;
+      return;
+    }
+
+    cart = {};
+    updateCartCount();
+
+    $("cartContent").innerHTML = `
+      <div style="text-align:center;">
+        <div style="font-size:48px;">💬</div>
+        <h2>Order Ready in WhatsApp!</h2>
+        <p>Order Reference: <strong>${order.id}</strong></p>
+        <p style="color:#6c757d;line-height:1.6">
+          WhatsApp has opened with your order details and live GPS location link. Please tap <strong>Send</strong>.
+        </p>
+        <button class="btn" onclick="location.reload()" style="margin-top:10px;">Back to Menu</button>
+      </div>
+    `;
+    showToast("Order prepared with Live Location!");
+  }
 </script>
 </body>
 </html>
